@@ -4,14 +4,16 @@ pub struct CPU {
 }
 
 pub struct Registers { // single registers (8bit)
-    a: u8,
-    b: u8,
-    c: u8,
-    d: u8,
-    e: u8,
-    f: u8,
-    h: u8,
-    l: u8,
+    pub a: u8,
+    pub b: u8,
+    pub c: u8,
+    pub d: u8,
+    pub e: u8,
+    pub f: u8,
+    pub h: u8,
+    pub l: u8,
+    pub pc: u16,
+    pub sp: u16,
 }
 
 impl Registers {
@@ -75,12 +77,12 @@ impl From<Flags> for u8 {
 
 // Convert u8 to struct
 impl From<u8> for Flags {
-    fn from(dbyte: u8) -> Self {
+    fn from(byte: u8) -> Self {
         Flags {
-            zero: (dbyte >> 7) & 0b1 != 0,
-            subtract: (dbyte >> 6) & 0b1 != 0,
-            half_carry: (dbyte >> 5) & 0b1 != 0,
-            carry: (dbyte >> 4) & 0b1 != 0
+            zero: (byte >> 7) & 0b1 != 0,
+            subtract: (byte >> 6) & 0b1 != 0,
+            half_carry: (byte >> 5) & 0b1 != 0,
+            carry: (byte >> 4) & 0b1 != 0
         }
     }
 }
