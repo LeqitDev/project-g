@@ -3,7 +3,7 @@ pub struct CPU {
     flags: Flags,
 }
 
-pub struct Registers {
+pub struct Registers { // single registers (8bit)
     a: u8,
     b: u8,
     c: u8,
@@ -15,6 +15,7 @@ pub struct Registers {
 }
 
 impl Registers {
+    // First 16bit register
     fn af(&self) -> u16 {
         ((self.f as u16) << 8) | self.a as u16
     }
@@ -24,6 +25,7 @@ impl Registers {
         self.a = v as u8;
     }
     
+    // Second 16bit register
     fn bc(&self) -> u16 {
         ((self.c as u16) << 8) | self.b as u16
     }
@@ -33,6 +35,7 @@ impl Registers {
         self.b = v as u8;
     }
     
+    // Third 16bit register
     fn de(&self) -> u16 {
         ((self.e as u16) << 8) | self.d as u16
     }
@@ -42,6 +45,7 @@ impl Registers {
         self.d = v as u8;
     }
     
+    // Fourth 16bit register
     fn hl(&self) -> u16 {
         ((self.l as u16) << 8) | self.h as u16
     }
@@ -59,6 +63,7 @@ pub struct Flags {
     pub carry: bool,
 }
 
+// Convert struct to u8
 impl From<Flags> for u8 {
     fn from(flags: Flags) -> Self {
         ((flags.zero as u8) << 7) |
@@ -68,6 +73,7 @@ impl From<Flags> for u8 {
     }
 }
 
+// Convert u8 to struct
 impl From<u8> for Flags {
     fn from(dbyte: u8) -> Self {
         Flags {
