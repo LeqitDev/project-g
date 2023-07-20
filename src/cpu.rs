@@ -1,3 +1,5 @@
+use crate::opcodes::Instruction;
+
 pub struct CPU {
     registers: Registers,
     flags: Flags,
@@ -18,43 +20,49 @@ pub struct Registers { // single registers (8bit)
 
 impl Registers {
     // First 16bit register
-    fn af(&self) -> u16 {
+    pub fn af(&self) -> u16 {
         ((self.f as u16) << 8) | self.a as u16
     }
 
-    fn set_af(&mut self, v: u16) {
+    pub fn set_af(&mut self, v: u16) {
         self.f = (v >> 8) as u8;
         self.a = v as u8;
     }
     
     // Second 16bit register
-    fn bc(&self) -> u16 {
+    pub fn bc(&self) -> u16 {
         ((self.c as u16) << 8) | self.b as u16
     }
 
-    fn set_bc(&mut self, v: u16) {
+    pub fn set_bc(&mut self, v: u16) {
         self.c = (v >> 8) as u8;
         self.b = v as u8;
     }
     
     // Third 16bit register
-    fn de(&self) -> u16 {
+    pub fn de(&self) -> u16 {
         ((self.e as u16) << 8) | self.d as u16
     }
 
-    fn set_de(&mut self, v: u16) {
+    pub fn set_de(&mut self, v: u16) {
         self.e = (v >> 8) as u8;
         self.d = v as u8;
     }
     
     // Fourth 16bit register
-    fn hl(&self) -> u16 {
+    pub fn hl(&self) -> u16 {
         ((self.l as u16) << 8) | self.h as u16
     }
 
-    fn set_hl(&mut self, v: u16) {
+    pub fn set_hl(&mut self, v: u16) {
         self.l = (v >> 8) as u8;
         self.h = v as u8;
+    }
+
+    pub fn execute(instruction: Instruction) {
+        match instruction {
+            
+        }
     }
 }
 

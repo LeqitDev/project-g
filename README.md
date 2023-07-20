@@ -2,7 +2,6 @@
 
 Gameboy emulator written in Rust
 
-
 # References
 
 * Pandocs: [https://gbdev.io/pandocs](https://gbdev.io/pandocs "https://gbdev.io/pandocs")
@@ -15,7 +14,7 @@ Gameboy emulator written in Rust
 * A journey into GB emulation: [https://robertovaccari.com/blog/2020_09_26_gameboy](https://robertovaccari.com/blog/2020_09_26_gameboy "https://robertovaccari.com/blog/2020_09_26_gameboy")
 * [http://www.codeslinger.co.uk/pages/projects/gameboy.html](http://www.codeslinger.co.uk/pages/projects/gameboy.html "http://www.codeslinger.co.uk/pages/projects/gameboy.html")
 * WIP tutorial on writing a GB emulator in Rust: [https://rylev.github.io/DMG-01/public/book/](https://rylev.github.io/DMG-01/public/book/ "https://rylev.github.io/DMG-01/public/book/")
-* GameBoy Emulator Development Guide: [https://hacktix.github.io/GBEDG](https://hacktix.github.io/GBEDG "https://hacktix.github.io/GBEDG")
+* GameBoy Emulator Development Guide: [https://github.com/Hacktix/GBEDG](https://github.com/Hacktix/GBEDG)
 * Test ROMs:* Blargg's test ROMs: [https://github.com/retrio/gb-test-roms](https://github.com/retrio/gb-test-roms "https://github.com/retrio/gb-test-roms")* Mooneye-gb test ROMs: [https://github.com/Gekkio/mooneye-test-suite](https://github.com/Gekkio/mooneye-test-suite "https://github.com/Gekkio/mooneye-test-suite")* dmg-acid (rendering test): [https://github.com/mattcurrie/dmg-acid2](https://github.com/mattcurrie/dmg-acid2 "https://github.com/mattcurrie/dmg-acid2")* cgb-acid (rendering test): [https://github.com/mattcurrie/cgb-acid2](https://github.com/mattcurrie/cgb-acid2 "https://github.com/mattcurrie/cgb-acid2")
   * PeterLemon's GB demos: [https://github.com/PeterLemon/GB](https://github.com/PeterLemon/GB "https://github.com/PeterLemon/GB")
   * Test ROM execution logs: [https://github.com/wheremyfoodat/Gameboy-logs](https://github.com/wheremyfoodat/Gameboy-logs "https://github.com/wheremyfoodat/Gameboy-logs")

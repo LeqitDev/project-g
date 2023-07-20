@@ -10,3 +10,9 @@ pub struct Opcode {
 pub struct OpcodeIndex {
     pub entry: HashMap<u8, Opcode>,
 }
+
+pub enum Instruction {
+    ADD(u8),
+    ADD_HL(u16),
+    ADD_SP(i8),
+}
