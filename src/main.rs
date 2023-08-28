@@ -1,11 +1,32 @@
-use sdl2::{pixels::Color, event::{self, Event}, keyboard::Keycode, rect::Point};
+use debugger::Debugger;
+use loader::load_rom;
+use sdl2::{
+    event::{self, Event},
+    keyboard::Keycode,
+    pixels::Color,
+    rect::Point,
+};
 use std::time::Duration;
 
-mod cpu;
-mod opcodes;
-mod graphics;
+use instruction_parser::run;
 
-fn main() -> Result<(), String> {
+pub mod cpu;
+mod debugger;
+pub mod display;
+pub mod instruction_parser;
+pub mod loader;
+pub mod wrapper;
+
+fn main() {
+    let data = load_rom("P:\\Programmieren\\Rust\\project-g\\main.gb");
+    println!("ROM size: {:X}", data.len());
+    let mut debugger = Debugger::new(data);
+    debugger.wait();
+
+    debugger.run();
+}
+
+fn start_gui() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
 
@@ -49,3 +70,7 @@ fn main() -> Result<(), String> {
 
     Ok(())
 }
+
+/* type Hex {
+
+} */
