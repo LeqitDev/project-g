@@ -10,6 +10,8 @@ use std::time::Duration;
 
 use instruction_parser::run;
 
+use crate::wrapper::GameBoy;
+
 pub mod cpu;
 mod debugger;
 pub mod display;
@@ -17,13 +19,13 @@ pub mod instruction_parser;
 pub mod loader;
 pub mod wrapper;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let data = load_rom("P:\\Programmieren\\Rust\\project-g\\main.gb");
     println!("ROM size: {:X}", data.len());
-    let mut debugger = Debugger::new(data);
-    debugger.wait();
+    let gb = GameBoy::start(data);
 
-    debugger.run();
+    gb.run().await;
 }
 
 fn start_gui() -> Result<(), String> {

@@ -1,20 +1,11 @@
-use std::{
-    sync::{Arc, Mutex},
-    thread,
-};
+use std::sync::{Arc, Mutex};
+use tokio::time::{sleep, Duration};
 
-use crate::{
-    cpu::{opcodes::Instruction, CPU},
-    debugger::Debugger,
-    display::Display,
-};
-use async_std::task;
+use crate::{cpu::CPU, debugger::Debugger, display::Display};
 
 pub struct GameBoy {
-    cpu: CPU,
     display: Display,
-    memory: Vec<u8>,
-    debugger: Option<Debugger>,
+    debugger: Debugger,
 }
 
 impl GameBoy {
@@ -47,26 +38,43 @@ impl GameBoy {
         // Share memory to cpu and display
 
         let mem_bus = Arc::new(Mutex::new(memory.clone()));
-        let cpu = CPU::new(&mem_bus);
-        let display = Display::new(&mem_bus);
+        let state = Arc::new(Mutex::new(State::new()));
 
-        Self {
-            cpu,
-            display,
-            debugger: None,
-            memory,
-        }
+        let debugger = Debugger::new(&mem_bus, &state);
+        let display = Display::new(&mem_bus, &state);
+
+        Self { display, debugger }
     }
 
-    fn run(&mut self) {
-        let mem = self.memory.clone();
-        let mut cpu = &self.cpu;
-        thread::spawn(move || loop {
-            let opcode = mem[cpu.pc as usize];
-            let instruction: Instruction = opcode.into();
-            if let Err(s) = cpu.execute(opcode.into()) {
-                print!("{}", s);
-            }
+    pub async fn run(mut self) {
+        let mut dbg = self.debugger;
+        let handle = tokio::spawn(async move {
+            dbg.run().await;
         });
+
+        let mut debugger = false;
+
+        loop {
+            if !self.display.gpu_loop() {
+                break;
+            }
+            sleep(Duration::from_millis(1)).await;
+        }
+    }
+}
+
+pub struct State {
+    pub exit: bool,
+    pub breakpoint: bool,
+    pub cpu: Option<CPU>,
+}
+
+impl State {
+    pub fn new() -> Self {
+        Self {
+            exit: false,
+            breakpoint: false,
+            cpu: None,
+        }
     }
 }

@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use self::opcodes::Instruction;
+use self::opcodes::{Instruction, Mnemonic};
 
 pub mod opcodes;
 
@@ -33,158 +33,158 @@ impl CPU {
     pub fn execute(&mut self, instruction: Instruction) -> Result<(), String> {
         self.pc += 1;
 
-        match instruction {
-            Instruction::NYI(byte) => panic!("Not yet implemented opcode: {:X}", byte),
-            Instruction::NOP(ticks) => {}
-            Instruction::ADD_A_A(ticks) => {
+        match instruction.mnemonic {
+            Mnemonic::NYI => panic!("Not yet implemented opcode: {:X}", instruction.code),
+            Mnemonic::NOP => {}
+            Mnemonic::ADD_A_A => {
                 let a = self.registers.a;
                 self.add_8b(a);
             }
-            Instruction::ADD_A_B(ticks) => {
+            Mnemonic::ADD_A_B => {
                 let b = self.registers.b;
                 self.add_8b(b);
             }
-            Instruction::ADD_A_C(ticks) => {
+            Mnemonic::ADD_A_C => {
                 let c = self.registers.c;
                 self.add_8b(c);
             }
-            Instruction::ADD_A_D(ticks) => {
+            Mnemonic::ADD_A_D => {
                 let d = self.registers.d;
                 self.add_8b(d);
             }
-            Instruction::ADD_A_E(ticks) => {
+            Mnemonic::ADD_A_E => {
                 let e = self.registers.e;
                 self.add_8b(e);
             }
-            Instruction::ADD_A_H(ticks) => {
+            Mnemonic::ADD_A_H => {
                 let h = self.registers.h;
                 self.add_8b(h);
             }
-            Instruction::ADD_A_L(ticks) => {
+            Mnemonic::ADD_A_L => {
                 let l = self.registers.l;
                 self.add_8b(l);
             }
-            Instruction::ADD_A_n8(ticks, bytes) => {
+            Mnemonic::ADD_A_n8 => {
                 self.add_8b(self.read_addr(self.pc));
                 self.pc += 1;
             }
-            Instruction::SUB_A_B(ticks) => {
+            Mnemonic::SUB_A_B => {
                 let b = self.registers.b;
                 self.sub_8b(b);
             }
-            Instruction::SUB_A_L(ticks) => {
+            Mnemonic::SUB_A_L => {
                 let l = self.registers.l;
                 self.sub_8b(l);
             }
-            Instruction::SUB_A_E(ticks) => {
+            Mnemonic::SUB_A_E => {
                 let e = self.registers.e;
                 self.sub_8b(e);
             }
-            Instruction::RST_00(ticks) => {
+            Mnemonic::RST_00 => {
                 self.restart(0x0000);
             }
-            Instruction::RST_08(ticks) => {
+            Mnemonic::RST_08 => {
                 self.restart(0x0008);
             }
-            Instruction::RST_10(ticks) => {
+            Mnemonic::RST_10 => {
                 self.restart(0x0010);
             }
-            Instruction::RST_18(ticks) => {
+            Mnemonic::RST_18 => {
                 self.restart(0x0018);
             }
-            Instruction::RST_20(ticks) => {
+            Mnemonic::RST_20 => {
                 self.restart(0x0020);
             }
-            Instruction::RST_28(ticks) => {
+            Mnemonic::RST_28 => {
                 self.restart(0x0028);
             }
-            Instruction::RST_30(ticks) => {
+            Mnemonic::RST_30 => {
                 self.restart(0x0030);
             }
-            Instruction::RST_38(ticks) => {
+            Mnemonic::RST_38 => {
                 self.restart(0x0038);
             }
-            Instruction::JP_a16(ticks, bytes) => {
+            Mnemonic::JP_a16 => {
                 let address = self.next_16b();
                 self.jump(address);
             }
-            Instruction::JP_C_a16(ticks, bytes) => {
+            Mnemonic::JP_C_a16 => {
                 let address = self.next_16b();
                 if self.registers.f.carry {
                     self.jump(address);
                 }
             }
-            Instruction::JP_NZ_a16(ticks, bytes) => {
+            Mnemonic::JP_NZ_a16 => {
                 let address = self.next_16b();
                 if !self.registers.f.zero {
                     self.jump(address);
                 }
             }
-            Instruction::LD_A_B(ticks) => {
+            Mnemonic::LD_A_B => {
                 self.registers.a = self.registers.b;
             }
-            Instruction::LD_A_L(ticks) => {
+            Mnemonic::LD_A_L => {
                 self.registers.a = self.registers.l;
             }
-            Instruction::LD_A_n8(ticks, bytes) => {
+            Mnemonic::LD_A_n8 => {
                 let digit = self.next();
                 self.registers.a = digit;
             }
-            Instruction::LD_H_n8(ticks, bytes) => {
+            Mnemonic::LD_H_n8 => {
                 self.registers.h = self.next();
             }
-            Instruction::LD_a16_A(ticks, bytes) => {
+            Mnemonic::LD_a16_A => {
                 let address = self.next_16b();
                 self.write_addr(address, self.registers.a);
             }
-            Instruction::LD_A_DE(ticks) => {
+            Mnemonic::LD_A_DE => {
                 self.registers.a = self.read_addr(self.registers.de());
             }
-            Instruction::LD_A_a16(ticks, bytes) => {
+            Mnemonic::LD_A_a16 => {
                 let address = self.next_16b();
                 self.registers.a = self.read_addr(address);
             }
-            Instruction::LD_B_H(ticks) => {
+            Mnemonic::LD_B_H => {
                 self.registers.b = self.registers.h;
             }
-            Instruction::LD_D_L(ticks) => {
+            Mnemonic::LD_D_L => {
                 self.registers.d = self.registers.l;
             }
-            Instruction::LD_L_E(ticks) => {
+            Mnemonic::LD_L_E => {
                 self.registers.l = self.registers.e;
             }
-            Instruction::LD_BC_n16(ticks, bytes) => {
+            Mnemonic::LD_BC_n16 => {
                 let digit = self.next_16b();
                 self.registers.set_bc(digit);
             }
-            Instruction::LD_DE_n16(ticks, bytes) => {
+            Mnemonic::LD_DE_n16 => {
                 let digit = self.next_16b();
                 self.registers.set_de(digit);
             }
-            Instruction::LD_HL_A(ticks) => {
+            Mnemonic::LD_HL_A => {
                 self.write_addr(self.registers.hl(), self.registers.a);
                 self.registers.set_hl(self.registers.hl() + 1);
             }
-            Instruction::LD_HL_n16(ticks, bytes) => {
+            Mnemonic::LD_HL_n16 => {
                 let digit = self.next_16b();
                 self.registers.set_hl(digit);
             }
-            Instruction::INC_DE(ticks) => {
+            Mnemonic::INC_DE => {
                 self.registers.set_de(self.registers.de() + 1);
             }
-            Instruction::DEC_B(ticks) => {
+            Mnemonic::DEC_B => {
                 self.registers.b -= 1;
             }
-            Instruction::DEC_BC(ticks) => {
+            Mnemonic::DEC_BC => {
                 self.registers.set_bc(self.registers.bc() - 1);
             }
-            Instruction::CP_A_n8(ticks, bytes) => {
+            Mnemonic::CP_A_n8 => {
                 let digit = self.next();
                 self.registers.f.zero = self.registers.a == digit;
                 self.registers.f.subtract = true;
                 self.registers.f.carry = self.registers.a < digit;
             }
-            Instruction::OR_A_C(ticks) => {
+            Mnemonic::OR_A_C => {
                 let new_value = self.registers.a | self.registers.c;
 
                 self.registers.f.zero = new_value == 0;

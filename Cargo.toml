@@ -6,7 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-std = "1.12.0"
+crossterm = "0.27.0"
+eframe = "0.22.0"
+egui = "0.22.0"
+fltk = "1.4.10"
 sdl2 = { version = "0.35.2", features = ["bundled"] }
 serde = { version = "1.0.188", features = ["serde_derive"] }
 serde_json = "1.0.105"
+tokio = { version = "1.32.0", features = ["full"] }

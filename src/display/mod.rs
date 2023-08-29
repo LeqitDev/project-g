@@ -2,22 +2,28 @@ use std::{
     cell::RefCell,
     rc::Rc,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use sdl2::{
     event::Event, keyboard::Keycode, pixels::Color, rect::Rect, render::Canvas, video::Window,
-    EventPump,
+    EventPump, Sdl,
 };
 
+use crate::wrapper::State;
+
 pub struct Display {
+    state: Arc<Mutex<State>>,
     memory: Arc<Mutex<Vec<u8>>>,
     canvas: Canvas<Window>,
+    debug_display: DebugDisplay,
+    debug: bool,
     event_pump: EventPump,
     size: u8,
 }
 
 impl Display {
-    pub fn new(memory: &Arc<Mutex<Vec<u8>>>) -> Self {
+    pub fn new(memory: &Arc<Mutex<Vec<u8>>>, state: &Arc<Mutex<State>>) -> Self {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
@@ -39,12 +45,17 @@ impl Display {
         canvas.clear();
         canvas.present();
 
+        let dbg_display = DebugDisplay::new(&sdl_context);
+
         let event_pump = sdl_context.event_pump().unwrap();
 
         Self {
+            state: state.clone(),
             memory: memory.clone(),
             canvas,
             event_pump,
+            debug_display: dbg_display,
+            debug: false,
             size: 4,
         }
     }
@@ -72,12 +83,19 @@ impl Display {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => {
+                    self.state.lock().unwrap().exit = true;
                     return false;
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::F1),
+                    ..
+                } => {
+                    self.debug = true;
                 }
                 _ => {}
             }
         }
-        println!("gpu update: tiles: {}, lcdc: {:?}", tiles.len(), lcdc);
+        // println!("gpu update: tiles: {}, lcdc: {:?}", tiles.len(), lcdc);
 
         tilemap.iter().enumerate().for_each(|(i, t)| {
             /* if *t == 0 {
@@ -95,6 +113,12 @@ impl Display {
         }); */
 
         self.canvas.present();
+
+        if self.debug && !self.debug_display.debug_loop() {
+            self.debug = false;
+        }
+
+        // ::std::thread::sleep(Duration::new(1, 1_000_000_000u32 / 30));
         // tiles[9].draw(&mut self.canvas);
 
         true
@@ -231,5 +255,41 @@ impl From<u8> for LCDC {
             obj_enabled: (byte >> 1) & 0b1 != 0,
             bg_w_enabled: byte & 0b1 != 0,
         }
+    }
+}
+
+struct DebugDisplay {
+    canvas: Canvas<Window>,
+}
+
+impl DebugDisplay {
+    fn new(sdl_context: &Sdl) -> Self {
+        let video_subsystem = sdl_context.video().unwrap();
+
+        let window = video_subsystem
+            .window("CubeCoder's GameBoy - Debug", 160 * 4, 144 * 4)
+            .position_centered()
+            .opengl()
+            .build()
+            .map_err(|e| e.to_string())
+            .unwrap();
+
+        let mut canvas = window
+            .into_canvas()
+            .build()
+            .map_err(|e| e.to_string())
+            .unwrap();
+
+        canvas.set_draw_color(Color::WHITE);
+        canvas.clear();
+        canvas.present();
+
+        Self { canvas }
+    }
+
+    fn debug_loop(&mut self) -> bool {
+        self.canvas.present();
+
+        true
     }
 }
