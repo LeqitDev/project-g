@@ -1,7 +1,7 @@
 use std::{
     cell::RefCell,
     rc::Rc,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, atomic::{Ordering, AtomicBool}},
     thread,
     time::{Duration, SystemTime},
 };
@@ -11,6 +11,7 @@ use eframe::{
     epaint::{Color32, Pos2, Rect, Rounding, Vec2},
 };
 use egui::{vec2, Painter, Shape, Window};
+use egui_extras::{TableBuilder, Column};
 
 use crate::{
     cpu::{opcodes::Instruction, CPU},
@@ -25,6 +26,7 @@ pub struct Display {
     prev_tilemap: Vec<u8>,
     tilemap_shapes: Vec<Shape>,
     tick: Arc<Mutex<i32>>,
+    show_deferred_viewport: Arc<AtomicBool>,
 }
 
 impl Display {
@@ -39,15 +41,22 @@ impl Display {
             prev_tilemap: vec![],
             tilemap_shapes: vec![],
             tick: t,
+            show_deferred_viewport: Arc::new(AtomicBool::default()),
         };
         let mem = memory.clone();
+        let st = state.clone();
         thread::spawn(move || {
             let mut cpu = CPU::new(&mem);
             loop {
                 let opcode = mem.lock().unwrap()[cpu.pc as usize];
                 // let instruction: Instruction = opcode.into();
-                if let Err(s) = cpu.execute(opcode.into()) {
-                    print!("{}", s);
+                if !st.lock().unwrap().breakpoint {
+                    if let Err(s) = cpu.execute(opcode.into()) {
+                        print!("{}", s);
+                    }
+                }
+                if st.lock().unwrap().exit {
+                    break;
                 }
                 /* *tc.lock().unwrap() += 1;
                 std::thread::sleep(Duration::from_millis(10)); */
@@ -165,7 +174,6 @@ impl Display {
 
 impl eframe::App for Display {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let now = SystemTime::now();
         let mut mem_lock = self.memory.lock().unwrap();
         let lcdc: LCDC = mem_lock[0xFF40].into();
 
@@ -197,9 +205,13 @@ impl eframe::App for Display {
 
                 ui.add_space(8.0);
 
-                /* if ui.add(Button::new("Deferred window")).clicked() {
+                if ui.add(Button::new("Stop")).clicked() {
+                    self.state.lock().unwrap().exit = true;
+                }
+
+                if ui.add(Button::new("Deferred window")).clicked() {
                     self.show_deferred_viewport.store(true, Ordering::Relaxed);
-                } */
+                } 
             });
 
             Frame::canvas(ui.style()).show(ui, |ui| {
@@ -217,7 +229,7 @@ impl eframe::App for Display {
                     // Stroke::new(1.0, Color32::from_rgb(255, 0, 0)),
                 ); */
                 let mut tilemap_shapes: Vec<Shape> = vec![];
-                if tilemap != self.prev_tilemap || self.state.lock().unwrap().update {
+                // if tilemap != self.prev_tilemap || self.state.lock().unwrap().update {
                     tilemap.iter().enumerate().for_each(|(i, t)| {
                         /* if *t == 0 {
                             return;
@@ -232,18 +244,7 @@ impl eframe::App for Display {
                     if self.state.lock().unwrap().update {
                         self.state.lock().unwrap().update = false;
                     }
-                }
-
-                match now.elapsed() {
-                    Ok(elapsed) => {
-                        // it prints '2'
-                        println!("{}", elapsed.as_millis());
-                    }
-                    Err(e) => {
-                        // an error occurred!
-                        println!("Error: {e:?}");
-                    }
-                }
+                // }
                 painter.extend(self.tilemap_shapes.clone());
 
                 response
@@ -262,6 +263,80 @@ impl eframe::App for Display {
                 .store(show_deferred_viewport, Ordering::Relaxed); */
             // self.tick += 1;
         });
+
+        if ctx.input(|i| i.viewport().close_requested()) {
+            self.state.lock().unwrap().exit = true;
+        }
+
+        if self.show_deferred_viewport.load(Ordering::Relaxed) {
+            let show_deferred_viewport = self.show_deferred_viewport.clone();
+            ctx.show_viewport_deferred(
+                egui::ViewportId::from_hash_of("debug_viewport"),
+                egui::ViewportBuilder::default()
+                    .with_title("Debugger")
+                    .with_inner_size([400.0, 600.0]),
+                move |ctx, class| {
+                    assert!(
+                        class == egui::ViewportClass::Deferred,
+                        "This egui backend doesn't support multiple viewports"
+                    );
+
+                    egui::CentralPanel::default().show(ctx, |ui| {
+                        ui.label("Hello from deferred viewport");
+
+                        let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
+
+                        let mut table = TableBuilder::new(ui)
+                            .striped(true)
+                            .resizable(false)
+                            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                            .column(Column::auto())
+                            .column(Column::initial(100.0).range(40.0..=300.0))
+                            .column(Column::initial(100.0).at_least(40.0).clip(true))
+                            .column(Column::remainder())
+                            .min_scrolled_height(0.0);
+
+                        table.header(20.0, |mut header| {
+                            header.col(|ui| {
+                                ui.strong("Row");
+                            });
+                            header.col(|ui| {
+                                ui.strong("Expanding content");
+                            });
+                            header.col(|ui| {
+                                ui.strong("Clipped text");
+                            });
+                            header.col(|ui| {
+                                ui.strong("Content");
+                            });
+                        }).body(|mut body| {
+                            body.rows(text_height, 100, |row_index, mut row| {
+                                row.col(|ui| {
+                                    ui.label(row_index.to_string());
+                                });
+                                row.col(|ui| {
+                                    ui.label("hihihihihih");
+                                });
+                                row.col(|ui| {
+                                    ui.label("klfnelknf");
+                                });
+                                row.col(|ui| {
+                                    ui.add(
+                                        egui::Label::new("Thousands of rows of even height").wrap(false),
+                                    );
+                                });
+                            });
+                        })
+
+                    });
+
+                    if ctx.input(|i| i.viewport().close_requested()) {
+                        // Tell parent to close us.
+                        show_deferred_viewport.store(false, Ordering::Relaxed);
+                    }
+                },
+            );
+        }
     }
 }
 

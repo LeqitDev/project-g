@@ -6,7 +6,7 @@ use loader::load_rom;
     pixels::Color,
     rect::Point,
 }; */
-use std::time::Duration;
+use std::{time::Duration, env};
 
 use instruction_parser::run;
 
@@ -21,7 +21,10 @@ pub mod wrapper;
 
 #[tokio::main]
 async fn main() {
-    let data = load_rom("P:\\Programmieren\\Rust\\project-g\\main.gb");
+    let mut working_dir = env::current_dir().unwrap();
+    working_dir.push("main.gb");
+    println!("{:?}", working_dir);
+    let data = load_rom(working_dir.as_os_str().to_str().unwrap());
     println!("ROM size: {:X}", data.len());
     let gb = GameBoy::start(data);
 
