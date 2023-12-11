@@ -1,11 +1,11 @@
 use debugger::Debugger;
 use loader::load_rom;
-use sdl2::{
+/* use sdl2::{
     event::{self, Event},
     keyboard::Keycode,
     pixels::Color,
     rect::Point,
-};
+}; */
 use std::time::Duration;
 
 use instruction_parser::run;
@@ -25,10 +25,10 @@ async fn main() {
     println!("ROM size: {:X}", data.len());
     let gb = GameBoy::start(data);
 
-    gb.run().await;
+    // gb.run().await;
 }
 
-fn start_gui() -> Result<(), String> {
+/* fn start_gui() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
 
@@ -71,7 +71,7 @@ fn start_gui() -> Result<(), String> {
     }
 
     Ok(())
-}
+} */
 
 /* type Hex {
 

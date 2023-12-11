@@ -2,65 +2,61 @@ use std::{
     cell::RefCell,
     rc::Rc,
     sync::{Arc, Mutex},
-    time::Duration,
+    thread,
+    time::{Duration, SystemTime},
 };
 
-use sdl2::{
-    event::Event, keyboard::Keycode, pixels::Color, rect::Rect, render::Canvas, video::Window,
-    EventPump, Sdl,
+use eframe::{
+    egui::{Button, Frame, Sense},
+    epaint::{Color32, Pos2, Rect, Rounding, Vec2},
 };
+use egui::{vec2, Painter, Shape, Window};
 
-use crate::wrapper::State;
+use crate::{
+    cpu::{opcodes::Instruction, CPU},
+    wrapper::State,
+};
 
 pub struct Display {
     state: Arc<Mutex<State>>,
     memory: Arc<Mutex<Vec<u8>>>,
-    canvas: Canvas<Window>,
-    debug_display: DebugDisplay,
     debug: bool,
-    event_pump: EventPump,
-    size: u8,
+    size: usize,
+    prev_tilemap: Vec<u8>,
+    tilemap_shapes: Vec<Shape>,
+    tick: Arc<Mutex<i32>>,
 }
 
 impl Display {
     pub fn new(memory: &Arc<Mutex<Vec<u8>>>, state: &Arc<Mutex<State>>) -> Self {
-        let sdl_context = sdl2::init().unwrap();
-        let video_subsystem = sdl_context.video().unwrap();
-
-        let window = video_subsystem
-            .window("CubeCoder's GameBoy", 160 * 4, 144 * 4)
-            .position_centered()
-            .opengl()
-            .build()
-            .map_err(|e| e.to_string())
-            .unwrap();
-
-        let mut canvas = window
-            .into_canvas()
-            .build()
-            .map_err(|e| e.to_string())
-            .unwrap();
-
-        canvas.set_draw_color(Color::WHITE);
-        canvas.clear();
-        canvas.present();
-
-        let dbg_display = DebugDisplay::new(&sdl_context);
-
-        let event_pump = sdl_context.event_pump().unwrap();
-
-        Self {
+        let t = Arc::new(Mutex::new(0));
+        let tc = Arc::clone(&t);
+        let o = Self {
             state: state.clone(),
             memory: memory.clone(),
-            canvas,
-            event_pump,
-            debug_display: dbg_display,
             debug: false,
             size: 4,
-        }
+            prev_tilemap: vec![],
+            tilemap_shapes: vec![],
+            tick: t,
+        };
+        let mem = memory.clone();
+        thread::spawn(move || {
+            let mut cpu = CPU::new(&mem);
+            loop {
+                let opcode = mem.lock().unwrap()[cpu.pc as usize];
+                // let instruction: Instruction = opcode.into();
+                if let Err(s) = cpu.execute(opcode.into()) {
+                    print!("{}", s);
+                }
+                /* *tc.lock().unwrap() += 1;
+                std::thread::sleep(Duration::from_millis(10)); */
+            }
+        });
+        o
     }
 
-    pub fn gpu_loop(&mut self) -> bool {
+    /* pub fn gpu_loop(&mut self) -> bool {
         let mut mem_lock = self.memory.lock().unwrap();
         let lcdc: LCDC = mem_lock[0xFF40].into();
 
@@ -76,7 +72,7 @@ impl Display {
         let tiles = self.load_objects(mem_lock[0x9000..0x9800].to_vec());
         let tilemap = mem_lock[0x9800..0x9BFF].to_vec();
 
-        for event in self.event_pump.poll_iter() {
+        /* for event in self.event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
                 | Event::KeyDown {
@@ -94,7 +90,7 @@ impl Display {
                 }
                 _ => {}
             }
-        }
+        } */
         // println!("gpu update: tiles: {}, lcdc: {:?}", tiles.len(), lcdc);
 
         tilemap.iter().enumerate().for_each(|(i, t)| {
@@ -102,7 +98,7 @@ impl Display {
                 return;
             } */
             tiles[*t as usize]
-                .draw_offset(&mut self.canvas, (i as i32 % 32 * 8, i as i32 / 32 * 8));
+                .draw_offset(&ui, (i as i32 % 32 * 8, i as i32 / 32 * 8));
         });
 
         /* tiles.iter().enumerate().for_each(|(i, t)| {
@@ -122,7 +118,7 @@ impl Display {
         // tiles[9].draw(&mut self.canvas);
 
         true
-    }
+    } */
 
     fn load_objects(&self, vram: Vec<u8>) -> Vec<Tile> {
         let mut tiles: Vec<Tile> = Vec::new();
@@ -137,7 +133,7 @@ impl Display {
 
                 tile.push(least | first);
             }
-            tiles.push(Tile::load_from_mem(tile, self.size));
+            tiles.push(Tile::load_from_mem(tile, self.size as u8));
         }
         tiles
     }
@@ -167,15 +163,128 @@ impl Display {
     }
 }
 
+impl eframe::App for Display {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        let now = SystemTime::now();
+        let mut mem_lock = self.memory.lock().unwrap();
+        let lcdc: LCDC = mem_lock[0xFF40].into();
+
+        if !lcdc.lcd_enabled {
+            return;
+        }
+
+        mem_lock[0xFF44] += 1;
+        if mem_lock[0xFF44] > 153 {
+            mem_lock[0xFF44] = 0;
+        }
+
+        let tiles = self.load_objects(mem_lock[0x9000..0x9800].to_vec());
+        let tilemap = mem_lock[0x9800..0x9BFF].to_vec();
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                if ui.add(Button::new("-")).clicked() {
+                    self.size -= 1;
+                    self.state.lock().unwrap().update = true;
+                }
+
+                ui.label(format!("{}", self.size));
+
+                if ui.add(Button::new("+")).clicked() {
+                    self.size += 1;
+                    self.state.lock().unwrap().update = true;
+                }
+
+                ui.add_space(8.0);
+
+                /* if ui.add(Button::new("Deferred window")).clicked() {
+                    self.show_deferred_viewport.store(true, Ordering::Relaxed);
+                } */
+            });
+
+            Frame::canvas(ui.style()).show(ui, |ui| {
+                let (mut response, painter) = ui.allocate_painter(
+                    Vec2::new((160 * self.size) as f32, (144 * self.size) as f32),
+                    Sense::hover(),
+                );
+
+                painter.rect_filled(response.rect, Rounding::ZERO, Color32::WHITE);
+
+                /* painter.rect_filled(
+                    get_pixel_dirty_position(&response.rect.left_top(), Vec2::splat(1.), self.size),
+                    Rounding::ZERO,
+                    Color32::from_rgb(255, 0, 0),
+                    // Stroke::new(1.0, Color32::from_rgb(255, 0, 0)),
+                ); */
+                let mut tilemap_shapes: Vec<Shape> = vec![];
+                if tilemap != self.prev_tilemap || self.state.lock().unwrap().update {
+                    tilemap.iter().enumerate().for_each(|(i, t)| {
+                        /* if *t == 0 {
+                            return;
+                        } */
+                        tilemap_shapes.append(&mut tiles[*t as usize].draw_offset(
+                            &response.rect.left_top(),
+                            (i as i32 % 32 * 8, i as i32 / 32 * 8),
+                        ));
+                    });
+                    self.prev_tilemap = tilemap;
+                    self.tilemap_shapes = tilemap_shapes;
+                    if self.state.lock().unwrap().update {
+                        self.state.lock().unwrap().update = false;
+                    }
+                }
+
+                match now.elapsed() {
+                    Ok(elapsed) => {
+                        // it prints '2'
+                        println!("{}", elapsed.as_millis());
+                    }
+                    Err(e) => {
+                        // an error occurred!
+                        println!("Error: {e:?}");
+                    }
+                }
+                painter.extend(self.tilemap_shapes.clone());
+
+                response
+            });
+
+            ctx.request_repaint();
+
+            /* ui.checkbox(
+                &mut self.show_immediate_viewport,
+                "Show immediate child viewport",
+            );
+
+            let mut show_deferred_viewport = self.show_deferred_viewport.load(Ordering::Relaxed);
+            ui.checkbox(&mut show_deferred_viewport, "Show deferred child viewport");
+            self.show_deferred_viewport
+                .store(show_deferred_viewport, Ordering::Relaxed); */
+            // self.tick += 1;
+        });
+    }
+}
+
 pub struct Tile {
-    pixels: Vec<Color>,
+    pixels: Vec<Color32>,
     size: u8,
 }
 
 impl Tile {
+    fn get_pixel_dirty_position(&self, left_top: &Pos2, coords: Vec2) -> Rect {
+        self.get_pixel_position(left_top, coords * Vec2::splat(self.size as f32))
+    }
+
+    fn get_pixel_position(&self, left_top: &Pos2, coords: Vec2) -> Rect {
+        Rect::from_two_pos(
+            *left_top + coords,
+            *left_top + (coords + Vec2::splat(self.size as f32)),
+        )
+    }
+
     fn load_from_mem(mem: Vec<u16>, size: u8) -> Self {
         let mut s = Self {
-            pixels: vec![Color::RED; 8 * 8],
+            pixels: vec![Color32::RED; 8 * 8],
             size,
         };
 
@@ -184,10 +293,10 @@ impl Tile {
             pixels.iter().enumerate().for_each(|(x, c)| {
                 if *c != 0 {
                     s.pixels[y * 8 + x] = match c {
-                        1 => Color::RGB(221, 228, 231),
-                        2 => Color::RGB(55, 71, 79),
-                        3 => Color::BLACK,
-                        _ => Color::RED,
+                        1 => Color32::from_rgb(221, 228, 231),
+                        2 => Color32::from_rgb(55, 71, 79),
+                        3 => Color32::BLACK,
+                        _ => Color32::RED,
                     }
                 }
             })
@@ -196,26 +305,28 @@ impl Tile {
         s
     }
 
-    fn draw_offset(&self, canvas: &mut Canvas<Window>, offset: (i32, i32)) {
+    fn draw_offset(&self, rect: &Pos2, offset: (i32, i32)) -> Vec<Shape> {
+        let mut ret: Vec<Shape> = vec![];
         if self.pixels.is_empty() {
-            return;
+            return ret;
         }
         for y in 0..8 {
             for x in 0..8 {
                 let pixel = self.pixels[y * 8 + x];
-                if pixel == Color::RED {
+                if pixel == Color32::RED {
                     continue;
                 }
-                canvas.set_draw_color(pixel);
-                let rect = Rect::new(
-                    (offset.0 + x as i32) * self.size as i32,
-                    (offset.1 + y as i32) * self.size as i32,
-                    self.size as u32,
-                    self.size as u32,
-                );
-                canvas.fill_rect(rect).expect("Failed to draw pixel");
+                ret.push(Shape::rect_filled(
+                    self.get_pixel_dirty_position(
+                        rect,
+                        vec2(offset.0 as f32 + x as f32, offset.1 as f32 + y as f32),
+                    ),
+                    Rounding::ZERO,
+                    pixel,
+                ));
             }
         }
+        ret
     }
 
     fn split_u16_into_2bit_numbers(&self, u16_value: u16) -> [u8; 8] {
@@ -258,38 +369,38 @@ impl From<u8> for LCDC {
     }
 }
 
-struct DebugDisplay {
-    canvas: Canvas<Window>,
+/* struct DebugDisplay {
+    // canvas: Canvas<Window>,
 }
 
 impl DebugDisplay {
     fn new(sdl_context: &Sdl) -> Self {
-        let video_subsystem = sdl_context.video().unwrap();
+        /* let video_subsystem = sdl_context.video().unwrap();
 
-        let window = video_subsystem
-            .window("CubeCoder's GameBoy - Debug", 160 * 4, 144 * 4)
-            .position_centered()
-            .opengl()
-            .build()
-            .map_err(|e| e.to_string())
-            .unwrap();
+               let window = video_subsystem
+                   .window("CubeCoder's GameBoy - Debug", 160 * 4, 144 * 4)
+                   .position_centered()
+                   .opengl()
+                   .build()
+                   .map_err(|e| e.to_string())
+                   .unwrap();
 
-        let mut canvas = window
-            .into_canvas()
-            .build()
-            .map_err(|e| e.to_string())
-            .unwrap();
+               let mut canvas = window
+                   .into_canvas()
+                   .build()
+                   .map_err(|e| e.to_string())
+                   .unwrap();
 
-        canvas.set_draw_color(Color::WHITE);
-        canvas.clear();
-        canvas.present();
-
-        Self { canvas }
+               canvas.set_draw_color(Color::WHITE);
+               canvas.clear();
+               canvas.present();
+        */
+        Self {}
     }
 
     fn debug_loop(&mut self) -> bool {
-        self.canvas.present();
+        // self.canvas.present();
 
         true
     }
-}
+} */

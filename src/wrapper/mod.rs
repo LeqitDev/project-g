@@ -4,8 +4,8 @@ use tokio::time::{sleep, Duration};
 use crate::{cpu::CPU, debugger::Debugger, display::Display};
 
 pub struct GameBoy {
-    display: Display,
-    debugger: Debugger,
+    // display: Display,
+    // debugger: Debugger,
 }
 
 impl GameBoy {
@@ -38,15 +38,29 @@ impl GameBoy {
         // Share memory to cpu and display
 
         let mem_bus = Arc::new(Mutex::new(memory.clone()));
-        let state = Arc::new(Mutex::new(State::new()));
+        let state = Arc::new(Mutex::new(State::default()));
 
-        let debugger = Debugger::new(&mem_bus, &state);
+        let mut debugger = Debugger::new(&mem_bus, &state);
         let display = Display::new(&mem_bus, &state);
 
-        Self { display, debugger }
+        tokio::spawn(async move {
+            // debugger.run().await;
+        });
+
+        let options = eframe::NativeOptions {
+            viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 650.0]),
+            ..Default::default()
+        };
+        let _ = eframe::run_native(
+            "Multiple viewports",
+            options,
+            Box::new(|_cc| Box::new(display)),
+        );
+
+        Self {}
     }
 
-    pub async fn run(mut self) {
+    /* pub async fn run(mut self) {
         let mut dbg = self.debugger;
         let handle = tokio::spawn(async move {
             dbg.run().await;
@@ -60,21 +74,13 @@ impl GameBoy {
             }
             sleep(Duration::from_millis(1)).await;
         }
-    }
+    } */
 }
 
+#[derive(Default)]
 pub struct State {
     pub exit: bool,
     pub breakpoint: bool,
+    pub update: bool,
     pub cpu: Option<CPU>,
-}
-
-impl State {
-    pub fn new() -> Self {
-        Self {
-            exit: false,
-            breakpoint: false,
-            cpu: None,
-        }
-    }
 }

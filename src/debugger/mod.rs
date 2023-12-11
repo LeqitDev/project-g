@@ -105,7 +105,7 @@ impl Debugger {
 
                 let event = read().unwrap();
 
-                if event == Event::Key(KeyCode::Enter.into()) {
+                if event == Event::Key(KeyCode::Char(' ').into()) {
                     self.stop = false;
                 } else if event == Event::Key(KeyCode::Char('q').into()) {
                     println!("Shutting down...");
