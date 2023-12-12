@@ -1,7 +1,10 @@
 use std::{
     cell::RefCell,
     rc::Rc,
-    sync::{Arc, Mutex, atomic::{Ordering, AtomicBool}},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     thread,
     time::{Duration, SystemTime},
 };
@@ -11,7 +14,7 @@ use eframe::{
     epaint::{Color32, Pos2, Rect, Rounding, Vec2},
 };
 use egui::{vec2, Painter, Shape, Window};
-use egui_extras::{TableBuilder, Column};
+use egui_extras::{Column, TableBuilder};
 
 use crate::{
     cpu::{opcodes::Instruction, CPU},
@@ -174,6 +177,7 @@ impl Display {
 
 impl eframe::App for Display {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        let now = SystemTime::now();
         let mut mem_lock = self.memory.lock().unwrap();
         let lcdc: LCDC = mem_lock[0xFF40].into();
 
@@ -186,21 +190,20 @@ impl eframe::App for Display {
             mem_lock[0xFF44] = 0;
         }
 
-        let tiles = self.load_objects(mem_lock[0x9000..0x9800].to_vec());
         let tilemap = mem_lock[0x9800..0x9BFF].to_vec();
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::TopBottomPanel::top("MyPanel").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 if ui.add(Button::new("-")).clicked() {
-                    self.size -= 1;
                     self.state.lock().unwrap().update = true;
+                    self.size -= 1;
                 }
 
                 ui.label(format!("{}", self.size));
 
                 if ui.add(Button::new("+")).clicked() {
-                    self.size += 1;
                     self.state.lock().unwrap().update = true;
+                    self.size += 1;
                 }
 
                 ui.add_space(8.0);
@@ -211,9 +214,15 @@ impl eframe::App for Display {
 
                 if ui.add(Button::new("Deferred window")).clicked() {
                     self.show_deferred_viewport.store(true, Ordering::Relaxed);
-                } 
+                }
             });
+        });
 
+        // if self.state.lock().unwrap().update {
+        let tiles = self.load_objects(mem_lock[0x9000..0x9800].to_vec());
+        // }
+
+        egui::CentralPanel::default().show(ctx, |ui| {
             Frame::canvas(ui.style()).show(ui, |ui| {
                 let (mut response, painter) = ui.allocate_painter(
                     Vec2::new((160 * self.size) as f32, (144 * self.size) as f32),
@@ -229,7 +238,7 @@ impl eframe::App for Display {
                     // Stroke::new(1.0, Color32::from_rgb(255, 0, 0)),
                 ); */
                 let mut tilemap_shapes: Vec<Shape> = vec![];
-                // if tilemap != self.prev_tilemap || self.state.lock().unwrap().update {
+                if tilemap != self.prev_tilemap || self.state.lock().unwrap().update {
                     tilemap.iter().enumerate().for_each(|(i, t)| {
                         /* if *t == 0 {
                             return;
@@ -244,11 +253,22 @@ impl eframe::App for Display {
                     if self.state.lock().unwrap().update {
                         self.state.lock().unwrap().update = false;
                     }
-                // }
+                }
                 painter.extend(self.tilemap_shapes.clone());
 
                 response
             });
+
+            match now.elapsed() {
+                Ok(elapsed) => {
+                    // it prints '2'
+                    println!("{}", elapsed.as_millis());
+                }
+                Err(e) => {
+                    // an error occurred!
+                    println!("Error: {e:?}");
+                }
+            }
 
             ctx.request_repaint();
 
@@ -263,6 +283,8 @@ impl eframe::App for Display {
                 .store(show_deferred_viewport, Ordering::Relaxed); */
             // self.tick += 1;
         });
+
+        let mem_cpy = self.memory.clone();
 
         if ctx.input(|i| i.viewport().close_requested()) {
             self.state.lock().unwrap().exit = true;
@@ -296,38 +318,49 @@ impl eframe::App for Display {
                             .column(Column::remainder())
                             .min_scrolled_height(0.0);
 
-                        table.header(20.0, |mut header| {
-                            header.col(|ui| {
-                                ui.strong("Row");
-                            });
-                            header.col(|ui| {
-                                ui.strong("Expanding content");
-                            });
-                            header.col(|ui| {
-                                ui.strong("Clipped text");
-                            });
-                            header.col(|ui| {
-                                ui.strong("Content");
-                            });
-                        }).body(|mut body| {
-                            body.rows(text_height, 100, |row_index, mut row| {
-                                row.col(|ui| {
-                                    ui.label(row_index.to_string());
+                        table
+                            .header(20.0, |mut header| {
+                                header.col(|ui| {
+                                    ui.strong("Row");
                                 });
-                                row.col(|ui| {
-                                    ui.label("hihihihihih");
+                                header.col(|ui| {
+                                    ui.strong("Expanding content");
                                 });
-                                row.col(|ui| {
-                                    ui.label("klfnelknf");
+                                header.col(|ui| {
+                                    ui.strong("Clipped text");
                                 });
-                                row.col(|ui| {
-                                    ui.add(
-                                        egui::Label::new("Thousands of rows of even height").wrap(false),
-                                    );
+                                header.col(|ui| {
+                                    ui.strong("Content");
                                 });
+                            })
+                            .body(|mut body| {
+                                body.rows(
+                                    text_height,
+                                    mem_cpy.lock().unwrap().len(),
+                                    |row_index, mut row| {
+                                        row.col(|ui| {
+                                            ui.label(format!("{:X}", row_index));
+                                        });
+                                        row.col(|ui| {
+                                            ui.label(format!(
+                                                "{:X}",
+                                                mem_cpy.lock().unwrap()[row_index]
+                                            ));
+                                        });
+                                        row.col(|ui| {
+                                            ui.label("klfnelknf");
+                                        });
+                                        row.col(|ui| {
+                                            ui.add(
+                                                egui::Label::new(
+                                                    "Thousands of rows of even height",
+                                                )
+                                                .wrap(false),
+                                            );
+                                        });
+                                    },
+                                );
                             });
-                        })
-
                     });
 
                     if ctx.input(|i| i.viewport().close_requested()) {

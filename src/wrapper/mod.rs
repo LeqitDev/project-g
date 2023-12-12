@@ -77,10 +77,20 @@ impl GameBoy {
     } */
 }
 
-#[derive(Default)]
 pub struct State {
     pub exit: bool,
     pub breakpoint: bool,
     pub update: bool,
     pub cpu: Option<CPU>,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            exit: Default::default(),
+            breakpoint: Default::default(),
+            update: true,
+            cpu: Default::default(),
+        }
+    }
 }
