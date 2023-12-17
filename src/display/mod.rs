@@ -190,7 +190,7 @@ impl eframe::App for Display {
             mem_lock[0xFF44] = 0;
         }
 
-        let tilemap = mem_lock[0x9800..0x9BFF].to_vec();
+        // let tilemap = mem_lock[0x9800..0x9BFF].to_vec();
 
         egui::TopBottomPanel::top("MyPanel").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -219,7 +219,7 @@ impl eframe::App for Display {
         });
 
         // if self.state.lock().unwrap().update {
-        let tiles = self.load_objects(mem_lock[0x9000..0x9800].to_vec());
+        // let tiles = self.load_objects(mem_lock[0x9000..0x9800].to_vec());
         // }
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -238,7 +238,7 @@ impl eframe::App for Display {
                     // Stroke::new(1.0, Color32::from_rgb(255, 0, 0)),
                 ); */
                 let mut tilemap_shapes: Vec<Shape> = vec![];
-                if tilemap != self.prev_tilemap || self.state.lock().unwrap().update {
+                /* if tilemap != self.prev_tilemap || self.state.lock().unwrap().update {
                     tilemap.iter().enumerate().for_each(|(i, t)| {
                         /* if *t == 0 {
                             return;
@@ -253,8 +253,16 @@ impl eframe::App for Display {
                     if self.state.lock().unwrap().update {
                         self.state.lock().unwrap().update = false;
                     }
+                } */
+                let tl = response.rect.left_top();
+                for x in 0..160 {
+                    for y in 0..144 {
+                        painter.add(Shape::rect_filled(Rect::from_two_pos(tl + vec2(x as f32 * 4., y as f32 * 4.), tl + vec2(x as f32 + 4., y as f32 + 4.)), Rounding::ZERO, Color32::from_rgb((x*255/160) as u8, (y*255/144) as u8, ((x-y)*255/(160-144)) as u8)));
+                        // println!("{}, {}, {}", (x*255/160) as u8, (y*255/144) as u8, 255);
+                    }
                 }
                 painter.extend(self.tilemap_shapes.clone());
+                painter.add(Shape::rect_filled(Rect::from_two_pos(tl + Pos2::new(10., 10.).to_vec2(), tl + Pos2::new(15., 15.).to_vec2()), Rounding::ZERO, Color32::BROWN));
 
                 response
             });
@@ -336,7 +344,7 @@ impl eframe::App for Display {
                             .body(|mut body| {
                                 body.rows(
                                     text_height,
-                                    mem_cpy.lock().unwrap().len(),
+                                    mem_cpy.lock().unwrap().len()/4000,
                                     |row_index, mut row| {
                                         row.col(|ui| {
                                             ui.label(format!("{:X}", row_index));
